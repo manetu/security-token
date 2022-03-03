@@ -1,4 +1,4 @@
-module github.com/manetu/platform/security-token
+module github.com/manetu/security-token
 
 go 1.17
 
