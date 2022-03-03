@@ -1,0 +1,8 @@
+pkcs11:
+  path: "/usr/local/Cellar/softhsm/2.6.1/lib/softhsm/libsofthsm2.so"
+  tokenlabel: "manetu"
+  pin: "1234"
+
+backend:
+  tokenurl: "https://portal.eu.manetu.io/oauth/token"
+  providerid: "piedpiper"
