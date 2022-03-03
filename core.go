@@ -25,7 +25,7 @@ import (
 	"github.com/olekukonko/tablewriter"
 	"github.com/spf13/viper"
 
-	"github.com/manetu/platform/security-token/config"
+	"github.com/manetu/security-token/config"
 )
 
 func check(e error) {
