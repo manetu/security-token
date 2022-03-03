@@ -24,7 +24,8 @@ import (
 	"github.com/ThalesIgnite/crypto11"
 	"github.com/olekukonko/tablewriter"
 	"github.com/spf13/viper"
-	"gitlab.com/manetu/platform/manetu-security-token/config"
+
+	"github.com/manetu/platform/security-token/config"
 )
 
 func check(e error) {
