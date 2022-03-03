@@ -1,4 +1,4 @@
-# manetu-security-token CLI
+[![CircleCI](https://circleci.com/gh/manetu/security-token/tree/master.svg?style=svg)](https://circleci.com/gh/manetu/security-token/tree/master)
 
 The manetu-security-token CLI is a simple utility to manage Manetu Service Account credentials within a [PKCS11](https://en.wikipedia.org/wiki/PKCS_11) compatible [Hardware Security Module](https://en.wikipedia.org/wiki/Hardware_security_module) (HSM).  It offers support for creating, reading, enumerating, and deleting "security tokens," which are simply a public/private key pair and a self-signed x509.
 
