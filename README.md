@@ -179,7 +179,7 @@ You may delete security tokens that are no longer needed.
 $ ./manetu-security-token delete --serial 9C:AA:50:2C:B5:1B:01:E2:3D:A6:03:D9:C3:0A:82:6C:F8:8F:6F:D7:B2:E3:CF:05:29:2C:20:F1:AE:C4:7A:72
 ```
 
-You can confirm deletion using 'list.'
+You can confirm deletion using `list` command.
 
 ### Helpful Tip
 
@@ -193,4 +193,11 @@ You may then repeat the --init-token flow to set up a fresh HSM instance.
 
 ## login
 
-Coming soon...
+You may login using a serial number from the `list` command. Note that the `serial` parameter is 
+optional; if you don't specify, it will pick one from the HSM.
+
+```shell
+$ ./manetu-security-token login --serial 9C:AA:50:2C:B5:1B:01:E2:3D:A6:03:D9:C3:0A:82:6C:F8:8F:6F:D7:B2:E3:CF:05:29:2C:20:F1:AE:C4:7A:72
+```
+
+The output is a `jwt` that can be used in Manetu API invocation.
