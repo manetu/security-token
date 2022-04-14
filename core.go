@@ -77,9 +77,9 @@ type Core struct {
 
 func New() Core {
 	viper.SetConfigName("security-tokens")
-	viper.AddConfigPath("/etc/manetu/")
-	viper.AddConfigPath("$HOME/.manetu")
 	viper.AddConfigPath(".")
+	viper.AddConfigPath("$HOME/.manetu")
+	viper.AddConfigPath("/etc/manetu/")
 	var configuration config.Configuration
 
 	if err := viper.ReadInConfig(); err != nil {
@@ -97,6 +97,8 @@ func New() Core {
 		Pin:        configuration.Pkcs11.Pin,
 	})
 	check(err)
+
+	fmt.Printf("Using config file: %s\n", viper.ConfigFileUsed())
 
 	return Core{ctx: ctx, Backend: configuration.Backend}
 }
@@ -163,11 +165,16 @@ func (c Core) List() {
 	check(err)
 
 	table := tablewriter.NewWriter(os.Stdout)
-	table.SetHeader([]string{"Serial", "Created"})
+	table.SetHeader([]string{"Serial", "Provider", "Created"})
 
 	for _, x := range certs {
 		cert := x.Leaf
-		table.Append([]string{hexEncode(cert.SerialNumber.Bytes()), cert.NotBefore.String()})
+		// there may multiple providers in future ?
+		providers := cert.Subject.Organization[0]
+		for i := 1; i < len(cert.Subject.Organization); i++ {
+			providers = "," + cert.Subject.Organization[i]
+		}
+		table.Append([]string{hexEncode(cert.SerialNumber.Bytes()), providers, cert.NotBefore.String()})
 	}
 	table.Render() // Send output
 }
