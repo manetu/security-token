@@ -184,7 +184,7 @@ func (c Core) computeMRN(cert *x509.Certificate) string {
 	return "mrn:iam:" + cert.Subject.Organization[0] + ":identity:" + hex.EncodeToString(hash[:])
 }
 
-func (c Core) Generate() {
+func (c Core) Generate(provider string) {
 	id, err := randomID()
 	check(err)
 
@@ -196,7 +196,7 @@ func (c Core) Generate() {
 	template := x509.Certificate{
 		SerialNumber: new(big.Int).SetBytes(id),
 		Subject: pkix.Name{
-			Organization: []string{c.Backend.ProviderID},
+			Organization: []string{provider},
 			SerialNumber: hexEncode(id),
 		},
 		NotBefore:             now,
