@@ -6,9 +6,10 @@ package main
 
 import (
 	"fmt"
-	"github.com/urfave/cli/v2" // imports as package "cli"
 	"log"
 	"os"
+
+	"github.com/urfave/cli/v2" // imports as package "cli"
 )
 
 func main() {
@@ -26,8 +27,18 @@ func main() {
 			{
 				Name:  "generate",
 				Usage: "Generate a new security token",
+				Flags: []cli.Flag{
+					&cli.StringFlag{
+						Name:  "provider",
+						Usage: "Set the provider id",
+					},
+				},
 				Action: func(c *cli.Context) error {
-					ctx.Generate()
+					provider := c.String("provider")
+					if provider == "" {
+						provider = ctx.Backend.ProviderID
+					}
+					ctx.Generate(provider)
 					return nil
 				},
 			},
