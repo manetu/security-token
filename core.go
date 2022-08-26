@@ -98,7 +98,7 @@ func New() Core {
 	})
 	check(err)
 
-	fmt.Printf("Using config file: %s\n", viper.ConfigFileUsed())
+	fmt.Fprintf(os.Stderr, "Using config file: %s\n", viper.ConfigFileUsed())
 
 	return Core{ctx: ctx, Backend: configuration.Backend}
 }
