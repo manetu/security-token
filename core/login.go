@@ -2,7 +2,7 @@
 Copyright © 2021-2022 Manetu Inc. All Rights Reserved.
 */
 
-package main
+package core
 
 import (
 	"context"
@@ -15,7 +15,6 @@ import (
 	"net/url"
 	"time"
 
-	"github.com/ThalesIgnite/crypto11"
 	"github.com/google/uuid"
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/clientcredentials"
@@ -42,7 +41,7 @@ func jwsHasher(pub crypto.PublicKey) (string, crypto.Hash, *elliptic.CurveParams
 	return "", 0, nil
 }
 
-func createJWT(signer crypto11.Signer, subject, audience string) (string, error) {
+func createJWT(signer crypto.Signer, subject, audience string) (string, error) {
 	// Select alg parameter, hash function and signature size based on RFC7518
 	alg, hasher, params := jwsHasher(signer.Public())
 

@@ -2,10 +2,12 @@
 Copyright © 2021-2022 Manetu Inc. All Rights Reserved.
 */
 
-package main
+package core
 
 import (
 	"bytes"
+	"crypto"
+	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/rand"
 	"crypto/sha256"
@@ -247,16 +249,65 @@ func (c Core) Delete(serial string) {
 	check(err)
 }
 
-func (c Core) Login(serial string) {
-	token, err := c.getToken(serial)
-	check(err)
-
-	mrn := c.computeMRN(token.Cert)
-
-	cajwt, err := createJWT(token.Signer, mrn, c.Backend.TokenURL)
+func (c Core) Login(signer crypto.Signer, cert *x509.Certificate) {
+	mrn := c.computeMRN(cert)
+	cajwt, err := createJWT(signer, mrn, c.Backend.TokenURL)
 	check(err)
 
 	jwt, err := login(cajwt, mrn, c.Backend.TokenURL)
 	check(err)
 	fmt.Printf("%s\n", jwt)
+}
+
+func (c Core) LoginPKCS11(serial string) {
+	token, err := c.getToken(serial)
+	check(err)
+
+	c.Login(token.Signer, token.Cert)
+}
+
+func (c Core) pathToBytes(path string) []byte {
+	b, err := os.ReadFile(path)
+	check(err)
+	return b
+}
+
+func (c Core) LoginX509(key string, cert string, path bool) {
+	var kBytes, cBytes []byte
+
+	if path {
+		kBytes = c.pathToBytes(key)
+		cBytes = c.pathToBytes(cert)
+	} else {
+		kBytes = []byte(key)
+		cBytes = []byte(cert)
+	}
+
+	getSigner := func(key []byte) (crypto.Signer, error) {
+		block, _ := pem.Decode(key)
+		a, err := x509.ParsePKCS8PrivateKey(block.Bytes)
+		if err != nil {
+			return nil, err
+		}
+
+		var (
+			signer crypto.Signer
+			ok     bool
+		)
+
+		if signer, ok = a.(*ecdsa.PrivateKey); !ok {
+			return nil, fmt.Errorf("unsupported private key")
+		}
+
+		return signer, nil
+	}
+
+	signer, err := getSigner(kBytes)
+	check(err)
+
+	certB, _ := pem.Decode(cBytes)
+	xCert, err := x509.ParseCertificate(certB.Bytes)
+	check(err)
+
+	c.Login(signer, xCert)
 }
