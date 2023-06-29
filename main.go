@@ -43,7 +43,13 @@ func main() {
 					if provider == "" {
 						provider = ctx.Backend.ProviderID
 					}
-					ctx.Generate(provider)
+					cert, err := ctx.Generate(provider)
+					st.Check(err)
+
+					fmt.Printf("Serial: %s\n", st.HexEncode(cert.SerialNumber.Bytes()))
+					fmt.Printf("MRN: %s\n", st.ComputeMRN(cert))
+					fmt.Printf("%s\n", st.ExportCert(cert))
+
 					return nil
 				},
 			},
@@ -79,7 +85,8 @@ func main() {
 					},
 				},
 				Action: func(c *cli.Context) error {
-					ctx.Delete(c.String("serial"))
+					err := ctx.Delete(c.String("serial"))
+					st.Check(err)
 					return nil
 				},
 			},
@@ -97,7 +104,10 @@ func main() {
 							},
 						},
 						Action: func(c *cli.Context) error {
-							ctx.LoginPKCS11(c.String("serial"))
+							jwt, err := ctx.LoginPKCS11(c.String("serial"))
+							st.Check(err)
+							fmt.Printf("%s\n", jwt)
+
 							return nil
 						},
 					},
@@ -122,7 +132,9 @@ func main() {
 							},
 						},
 						Action: func(c *cli.Context) error {
-							ctx.LoginX509(c.String("key"), c.String("cert"), c.Bool("path"))
+							jwt, err := ctx.LoginX509(c.String("key"), c.String("cert"), c.Bool("path"))
+							st.Check(err)
+							fmt.Printf("%s\n", jwt)
 							return nil
 						},
 					},

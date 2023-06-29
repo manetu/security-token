@@ -20,6 +20,7 @@ import (
 	"log"
 	"math/big"
 	"os"
+	"path/filepath"
 	"regexp"
 	"time"
 
@@ -30,7 +31,8 @@ import (
 	"github.com/manetu/security-token/config"
 )
 
-func check(e error) {
+// Check panics if err != nil
+func Check(e error) {
 	if e != nil {
 		panic(e)
 	}
@@ -45,13 +47,14 @@ func randomID() ([]byte, error) {
 	return token, nil
 }
 
-func hexEncode(b []byte) string {
+// HexEncode encodes the raw bytes into hex
+func HexEncode(b []byte) string {
 	var buf bytes.Buffer
 	for i, f := range b {
 		if i > 0 {
-			fmt.Fprintf(&buf, ":")
+			_, _ = fmt.Fprintf(&buf, ":")
 		}
-		fmt.Fprintf(&buf, "%02X", f)
+		_, _ = fmt.Fprintf(&buf, "%02X", f)
 	}
 
 	return buf.String()
@@ -59,16 +62,17 @@ func hexEncode(b []byte) string {
 
 func importHexencode(serial string) []byte {
 	reg, err := regexp.Compile(":")
-	check(err)
+	Check(err)
 
 	striped := reg.ReplaceAllString(serial, "")
 	b, err := hex.DecodeString(striped)
-	check(err)
+	Check(err)
 
 	return b
 }
 
-func exportCert(cert *x509.Certificate) string {
+// ExportCert exports the certificate into a PEM string
+func ExportCert(cert *x509.Certificate) string {
 	return string(pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: cert.Raw}))
 }
 
@@ -98,7 +102,7 @@ func New() Core {
 		TokenLabel: configuration.Pkcs11.TokenLabel,
 		Pin:        configuration.Pkcs11.Pin,
 	})
-	check(err)
+	Check(err)
 
 	fmt.Fprintf(os.Stderr, "Using config file: %s\n", viper.ConfigFileUsed())
 
@@ -157,14 +161,14 @@ func (c Core) getToken(serial string) (*Token, error) {
 
 func (c Core) Show(serial string) {
 	token, err := c.getToken(serial)
-	check(err)
+	Check(err)
 
-	fmt.Printf("%s\n", exportCert(token.Cert))
+	fmt.Printf("%s\n", ExportCert(token.Cert))
 }
 
 func (c Core) List() {
 	certs, err := c.ctx.FindAllPairedCertificates()
-	check(err)
+	Check(err)
 
 	table := tablewriter.NewWriter(os.Stdout)
 	table.SetHeader([]string{"Serial", "Provider", "Created"})
@@ -176,22 +180,27 @@ func (c Core) List() {
 		for i := 1; i < len(cert.Subject.Organization); i++ {
 			providers = "," + cert.Subject.Organization[i]
 		}
-		table.Append([]string{hexEncode(cert.SerialNumber.Bytes()), providers, cert.NotBefore.String()})
+		table.Append([]string{HexEncode(cert.SerialNumber.Bytes()), providers, cert.NotBefore.String()})
 	}
 	table.Render() // Send output
 }
 
-func (c Core) computeMRN(cert *x509.Certificate) string {
+// ComputeMRN computes MRN given certificate
+func ComputeMRN(cert *x509.Certificate) string {
 	hash := sha256.Sum256(cert.Raw)
 	return "mrn:iam:" + cert.Subject.Organization[0] + ":identity:" + hex.EncodeToString(hash[:])
 }
 
-func (c Core) Generate(provider string) {
+func (c Core) Generate(provider string) (*x509.Certificate, error) {
 	id, err := randomID()
-	check(err)
+	if err != nil {
+		return nil, err
+	}
 
 	signer, err := c.ctx.GenerateECDSAKeyPair(id, elliptic.P256())
-	check(err)
+	if err != nil {
+		return nil, err
+	}
 
 	now := time.Now()
 	duration := time.Hour * 24 * 3650
@@ -199,7 +208,7 @@ func (c Core) Generate(provider string) {
 		SerialNumber: new(big.Int).SetBytes(id),
 		Subject: pkix.Name{
 			Organization: []string{provider},
-			SerialNumber: hexEncode(id),
+			SerialNumber: HexEncode(id),
 		},
 		NotBefore:             now,
 		NotAfter:              now.Add(duration),
@@ -210,10 +219,14 @@ func (c Core) Generate(provider string) {
 	}
 
 	der, err := x509.CreateCertificate(rand.Reader, &template, &template, signer.Public(), signer)
-	check(err)
+	if err != nil {
+		return nil, err
+	}
 
 	cert, err := x509.ParseCertificate(der)
-	check(err)
+	if err != nil {
+		return nil, err
+	}
 
 	cp := x509.NewCertPool()
 	cp.AddCert(cert)
@@ -221,63 +234,83 @@ func (c Core) Generate(provider string) {
 	_, err = cert.Verify(x509.VerifyOptions{
 		Roots: cp,
 	})
-	check(err)
+	if err != nil {
+		return nil, err
+	}
 
 	err = c.ctx.ImportCertificate(id, cert)
-	check(err)
+	if err != nil {
+		return nil, err
+	}
 
-	fmt.Printf("Serial: %s\n", hexEncode(cert.SerialNumber.Bytes()))
-	fmt.Printf("MRN: %s\n", c.computeMRN(cert))
-
-	fmt.Printf("%s\n", exportCert(cert))
+	return cert, nil
 }
 
-func (c Core) Delete(serial string) {
+func (c Core) Delete(serial string) error {
 	id := importHexencode(serial)
 
 	err := c.ctx.DeleteCertificate(id, nil, nil)
-	check(err)
-
-	signer, err := c.ctx.FindKeyPair(id, nil)
-	check(err)
-	if signer == nil {
-		fmt.Fprint(os.Stderr, "ERROR: Invalid serial number")
-		return
+	if err != nil {
+		return err
 	}
 
-	err = signer.Delete()
-	check(err)
+	signer, err := c.ctx.FindKeyPair(id, nil)
+	if err != nil {
+		return err
+	}
+
+	if signer == nil {
+		_, _ = fmt.Fprint(os.Stderr, "ERROR: Invalid serial number")
+		return nil
+	}
+
+	return signer.Delete()
 }
 
-func (c Core) Login(signer crypto.Signer, cert *x509.Certificate) {
-	mrn := c.computeMRN(cert)
+func (c Core) Login(signer crypto.Signer, cert *x509.Certificate) (string, error) {
+	mrn := ComputeMRN(cert)
 	cajwt, err := createJWT(signer, mrn, c.Backend.TokenURL)
-	check(err)
+	if err != nil {
+		return "", err
+	}
 
 	jwt, err := login(cajwt, mrn, c.Backend.TokenURL)
-	check(err)
-	fmt.Printf("%s\n", jwt)
+	if err != nil {
+		return "", err
+	}
+
+	return jwt, err
 }
 
-func (c Core) LoginPKCS11(serial string) {
+func (c Core) LoginPKCS11(serial string) (string, error) {
 	token, err := c.getToken(serial)
-	check(err)
+	if err != nil {
+		return "", err
+	}
 
-	c.Login(token.Signer, token.Cert)
+	return c.Login(token.Signer, token.Cert)
 }
 
-func (c Core) pathToBytes(path string) []byte {
-	b, err := os.ReadFile(path)
-	check(err)
-	return b
+func (c Core) pathToBytes(path string) ([]byte, error) {
+	return os.ReadFile(filepath.Clean(path))
 }
 
-func (c Core) LoginX509(key string, cert string, path bool) {
-	var kBytes, cBytes []byte
+func (c Core) LoginX509(key string, cert string, path bool) (string, error) {
+	var (
+		kBytes []byte
+		cBytes []byte
+		err    error
+	)
 
 	if path {
-		kBytes = c.pathToBytes(key)
-		cBytes = c.pathToBytes(cert)
+		kBytes, err = c.pathToBytes(key)
+		if err != nil {
+			return "", err
+		}
+		cBytes, err = c.pathToBytes(cert)
+		if err != nil {
+			return "", err
+		}
 	} else {
 		kBytes = []byte(key)
 		cBytes = []byte(cert)
@@ -303,11 +336,15 @@ func (c Core) LoginX509(key string, cert string, path bool) {
 	}
 
 	signer, err := getSigner(kBytes)
-	check(err)
+	if err != nil {
+		return "", err
+	}
 
 	certB, _ := pem.Decode(cBytes)
 	xCert, err := x509.ParseCertificate(certB.Bytes)
-	check(err)
+	if err != nil {
+		return "", err
+	}
 
-	c.Login(signer, xCert)
+	return c.Login(signer, xCert)
 }
