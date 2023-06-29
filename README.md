@@ -191,11 +191,20 @@ You may then repeat the --init-token flow to set up a fresh HSM instance.
 
 ## login
 
+### hsm
 You may login using a serial number from the `list` command. Note that the `serial` parameter is 
 optional; if you don't specify, it will pick one from the HSM.
 
 ```shell
-$ ./manetu-security-token login --serial 9C:AA:50:2C:B5:1B:01:E2:3D:A6:03:D9:C3:0A:82:6C:F8:8F:6F:D7:B2:E3:CF:05:29:2C:20:F1:AE:C4:7A:72
+$ ./manetu-security-token login hsm --serial 9C:AA:50:2C:B5:1B:01:E2:3D:A6:03:D9:C3:0A:82:6C:F8:8F:6F:D7:B2:E3:CF:05:29:2C:20:F1:AE:C4:7A:72
 ```
+
+### x509
+You may login using an ECDSA/prime256v1 key with corresponding x509 certificate used to create the manetu service identity.
+
+```shell
+$ manetu-security-token login x509 --key /path/to/key.pem --cert /path/to/cert.pem --path
+```
+Raw strings are assumed if `--path` is omitted.
 
 The output is a `jwt` that can be used in Manetu API invocation.
