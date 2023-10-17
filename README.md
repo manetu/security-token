@@ -4,7 +4,7 @@
 
 The manetu-security-token CLI is a simple utility to manage Manetu Service Account credentials within a [PKCS11](https://en.wikipedia.org/wiki/PKCS_11) compatible [Hardware Security Module](https://en.wikipedia.org/wiki/Hardware_security_module) (HSM).  It offers support for creating, reading, enumerating, and deleting "security tokens," which are simply a public/private key pair and a self-signed x509.
 
-Users register these security tokens with the Manetu Provider Portal as a credential for a Service Account within the product's Identity and Access Management (IAM) function.
+Users register these security tokens with the Manetu Realm Portal as a credential for a Service Account within the product's Identity and Access Management (IAM) function.
 
 This utility also offers a 'login' function as a convenience, which will initiate a Service Account login via the OAUTH [private_key_jwt](https://openid.net/specs/openid-connect-core-1_0-15.html#ClientAuthentication) authentication flow.  If successful, the resulting [JWT](https://en.wikipedia.org/wiki/JSON_Web_Token) based Access Token will be sent to stdout, making this function suitable as both an example as well as an integration for other applications that cannot perform the HSM and JWT operations natively.
 
@@ -21,7 +21,7 @@ If you don't have access to a physical HSM, you may also use the [SoftHSM2](http
 
 ## Setup
 
-You will need to create a security-tokens.yml file with the specifics of your environment.  These details include the HSM configuration, the URL to the Manetu Portal, and the Provider assignment for the Service Account.  Example:
+You will need to create a security-tokens.yml file with the specifics of your environment.  These details include the HSM configuration, the URL to the Manetu Portal, and the Realm assignment for the Service Account.  Example:
 
 ```yaml
 pkcs11:
@@ -31,7 +31,7 @@ pkcs11:
 
 backend:
   tokenurl: "https://portal.eu.manetu.io/oauth/token"
-  providerid: "piedpiper"
+  realmId: "piedpiper"
 ```
 
 Please consult the documentation for your selected HSM for the details in the pkcs11 section.
@@ -45,8 +45,12 @@ The tool will ask you to select a PIN.  Be sure to update the security-tokens.ym
 
 ## Building
 
+Make sure the following software is installed
+ 
+* Golang env version 1.18 or above
+
 ```shell
-go build
+make bin
 ```
 
 Executing this command should result in the binary 'manetu-security-token' within your current working directory.
@@ -104,7 +108,7 @@ You may list the inventory of security tokens stored within your configured HSM.
 ```shell
 $ ./manetu-security-token list
 +-------------------------------------------------------------------------------------------------+-------------+-------------------------------+
-|                                             SERIAL                                              |  PROVIDER   |            CREATED            |
+|                                             SERIAL                                              |    REALM    |            CREATED            |
 +-------------------------------------------------------------------------------------------------+-------------+-------------------------------+
 | 81:AD:CE:D8:29:B5:47:2F:3C:55:2F:C0:35:E9:AB:CA:21:94:6F:84:AB:E9:0B:4A:69:BB:CF:18:4E:60:C2:97 | acmelender  | 2022-04-14 14:24:24 +0000 UTC |
 | C3:22:F2:90:CD:8F:41:9B:6C:1A:FC:F9:5D:77:17:30:B9:5D:64:49:EB:C1:88:EB:E3:C5:3F:1A:5D:BD:32:C2 | data-loader | 2022-04-13 22:51:51 +0000 UTC |
@@ -191,20 +195,39 @@ You may then repeat the --init-token flow to set up a fresh HSM instance.
 
 ## login
 
+A Service Account must be created in the Manetu Realm UI using an x509 certificate prior to login. The certificate is obtained through different means for HSM and ECDSA key based logins.
+
 ### hsm
-You may login using a serial number from the `list` command. Note that the `serial` parameter is 
-optional; if you don't specify, it will pick one from the HSM.
+
+Create the Service Account using the X509 certificate from the [generate](#generate) step.
+
+You may login using a serial number from the [list](#list) command. Note that the `serial` parameter is optional; if you don't specify, it will pick one from the HSM.
 
 ```shell
 $ ./manetu-security-token login hsm --serial 9C:AA:50:2C:B5:1B:01:E2:3D:A6:03:D9:C3:0A:82:6C:F8:8F:6F:D7:B2:E3:CF:05:29:2C:20:F1:AE:C4:7A:72
 ```
 
-### x509
-You may login using an ECDSA/prime256v1 key with corresponding x509 certificate used to create the manetu service identity.
+The output is a `jwt` that can be used in Manetu API invocation.
+
+### pem
+
+A sample script to generate the x509 certificate for development purposes:
 
 ```shell
-$ manetu-security-token login x509 --key /path/to/key.pem --cert /path/to/cert.pem --path
+$ openssl ecparam -genkey -name prime256v1 -noout -out key.pem
+$ openssl req -new -x509 -key key.pem -out cert.pem -days 365 -subj "/O=the-realm-of-the-service-account"
 ```
+
+Replace `the-realm-of-the-service-account` appropriate realm ID.
+
+Log into the realm in Manetu Realm UI and create the Service Account using `cert.pem`.
+
+You may login using the key/cert:
+
+```shell
+$ ./manetu-security-token login x509 --key /path/to/key.pem --cert /path/to/cert.pem --path
+```
+
 Raw strings are assumed if `--path` is omitted.
 
 The output is a `jwt` that can be used in Manetu API invocation.
