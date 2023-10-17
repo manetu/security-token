@@ -34,16 +34,16 @@ func main() {
 				Usage: "Generate a new security token",
 				Flags: []cli.Flag{
 					&cli.StringFlag{
-						Name:  "provider",
-						Usage: "Set the provider id",
+						Name:  "realm",
+						Usage: "Set the realm id",
 					},
 				},
 				Action: func(c *cli.Context) error {
-					provider := c.String("provider")
-					if provider == "" {
-						provider = ctx.Backend.ProviderID
+					realm := c.String("realm")
+					if realm == "" {
+						realm = ctx.Backend.RealmID
 					}
-					cert, err := ctx.Generate(provider)
+					cert, err := ctx.Generate(realm)
 					st.Check(err)
 
 					fmt.Printf("Serial: %s\n", st.HexEncode(cert.SerialNumber.Bytes()))
@@ -112,8 +112,8 @@ func main() {
 						},
 					},
 					{
-						Name:  "x509",
-						Usage: "X509 based login",
+						Name:  "pem",
+						Usage: "non-HSM protected PEM encoded certificate and key-pair",
 						Flags: []cli.Flag{
 							&cli.StringFlag{
 								Name:     "key",

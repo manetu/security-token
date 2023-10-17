@@ -89,7 +89,7 @@ func New() Core {
 	var configuration config.Configuration
 
 	if err := viper.ReadInConfig(); err != nil {
-		log.Fatalf("Error reading config file, %s", err)
+		log.Fatalf("error reading config file, %s", err)
 	}
 	err := viper.Unmarshal(&configuration)
 	if err != nil {
@@ -171,16 +171,16 @@ func (c Core) List() {
 	Check(err)
 
 	table := tablewriter.NewWriter(os.Stdout)
-	table.SetHeader([]string{"Serial", "Provider", "Created"})
+	table.SetHeader([]string{"Serial", "Realm", "Created"})
 
 	for _, x := range certs {
 		cert := x.Leaf
-		// there may multiple providers in future ?
-		providers := cert.Subject.Organization[0]
+		// there may multiple realms in future ?
+		realms := cert.Subject.Organization[0]
 		for i := 1; i < len(cert.Subject.Organization); i++ {
-			providers = "," + cert.Subject.Organization[i]
+			realms = "," + cert.Subject.Organization[i]
 		}
-		table.Append([]string{HexEncode(cert.SerialNumber.Bytes()), providers, cert.NotBefore.String()})
+		table.Append([]string{HexEncode(cert.SerialNumber.Bytes()), realms, cert.NotBefore.String()})
 	}
 	table.Render() // Send output
 }
@@ -191,7 +191,7 @@ func ComputeMRN(cert *x509.Certificate) string {
 	return "mrn:iam:" + cert.Subject.Organization[0] + ":identity:" + hex.EncodeToString(hash[:])
 }
 
-func (c Core) Generate(provider string) (*x509.Certificate, error) {
+func (c Core) Generate(realm string) (*x509.Certificate, error) {
 	id, err := randomID()
 	if err != nil {
 		return nil, err
@@ -207,7 +207,7 @@ func (c Core) Generate(provider string) (*x509.Certificate, error) {
 	template := x509.Certificate{
 		SerialNumber: new(big.Int).SetBytes(id),
 		Subject: pkix.Name{
-			Organization: []string{provider},
+			Organization: []string{realm},
 			SerialNumber: HexEncode(id),
 		},
 		NotBefore:             now,
@@ -318,20 +318,30 @@ func (c Core) LoginX509(key string, cert string, path bool) (string, error) {
 
 	getSigner := func(key []byte) (crypto.Signer, error) {
 		block, _ := pem.Decode(key)
-		a, err := x509.ParsePKCS8PrivateKey(block.Bytes)
+		if block == nil {
+			return nil, fmt.Errorf("error decoding key")
+		}
+
+		//try as EC block
+		signer, inerr := x509.ParseECPrivateKey(block.Bytes)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("unsupported private key: %s", inerr)
 		}
 
-		var (
-			signer crypto.Signer
-			ok     bool
-		)
+		if signer == nil {
+			//fall back to generic
+			a, err := x509.ParsePKCS8PrivateKey(block.Bytes)
+			if err != nil {
+				return nil, err
+			}
+			var (
+				ok bool
+			)
 
-		if signer, ok = a.(*ecdsa.PrivateKey); !ok {
-			return nil, fmt.Errorf("unsupported private key")
+			if signer, ok = a.(*ecdsa.PrivateKey); !ok {
+				return nil, fmt.Errorf("unsupported private key")
+			}
 		}
-
 		return signer, nil
 	}
 
@@ -343,7 +353,7 @@ func (c Core) LoginX509(key string, cert string, path bool) (string, error) {
 	certB, _ := pem.Decode(cBytes)
 	xCert, err := x509.ParseCertificate(certB.Bytes)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("error parsing cert: %s", err)
 	}
 
 	return c.Login(signer, xCert)

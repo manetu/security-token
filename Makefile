@@ -3,9 +3,9 @@
 PROJECT_NAME := manetu-login-policy
 GO_FILES := $(shell find . -name '*.go' | grep -v /vendor/ | grep -v _test.go)
 
-.PHONY: all clean lint test goimports staticcheck tests sec-scan
+.PHONY: all clean lint test goimports staticcheck tests sec-scan bin
 
-all: lint test race staticcheck goimports sec-scan
+all: lint test race staticcheck goimports sec-scan bin
 
 lint: ## Run unittests
 	@printf "\033[36m%-30s\033[0m %s\n" "### make $@"
@@ -34,7 +34,11 @@ goimports: ## Run goimports
 
 clean: ## Remove previous build
 	@printf "\033[36m%-30s\033[0m %s\n" "### make $@"
-	@rm go.sum
+	@-rm manetu-security-token
+
+bin: ## Build the exe
+	@printf "\033[36m%-30s\033[0m %s\n" "### make $@"
+	@go build -o manetu-security-token
 
 sec-scan: ## Run gosec; see https://github.com/securego/gosec
 	@gosec ./...
