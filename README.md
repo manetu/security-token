@@ -225,7 +225,7 @@ Log into the realm in Manetu Realm UI and create the Service Account using `cert
 You may login using the key/cert:
 
 ```shell
-$ ./manetu-security-token login x509 --key /path/to/key.pem --cert /path/to/cert.pem --path
+$ ./manetu-security-token login pem --key /path/to/key.pem --cert /path/to/cert.pem --path
 ```
 
 Raw strings are assumed if `--path` is omitted.
