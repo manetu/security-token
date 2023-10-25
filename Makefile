@@ -1,6 +1,12 @@
 # Copyright Manetu Inc. All Rights Reserved.
 
-PROJECT_NAME := manetu-login-policy
+PROJECT_NAME := manetu-security-token
+GOPROJECT := github.com/manetu/security-token
+
+VERSIONARGS := -X $(GOPROJECT)/version.GitCommit=$(shell git log -n1 --format=format:"%H")\
+			   -X $(GOPROJECT)/version.GoVersion=$(shell go version | cut -d' ' -f3) \
+			   -X $(GOPROJECT)/version.BuildDate=$(shell date -u +'%Y-%m-%dT%H:%M:%SZ')
+
 GO_FILES := $(shell find . -name '*.go' | grep -v /vendor/ | grep -v _test.go)
 
 .PHONY: all clean lint test goimports staticcheck tests sec-scan bin
@@ -38,7 +44,7 @@ clean: ## Remove previous build
 
 bin: ## Build the exe
 	@printf "\033[36m%-30s\033[0m %s\n" "### make $@"
-	@go build -o manetu-security-token
+	go build -ldflags "$(VERSIONARGS)" -o manetu-security-token
 
 sec-scan: ## Run gosec; see https://github.com/securego/gosec
 	@gosec ./...
