@@ -27,22 +27,24 @@ func main() {
 		_ = ctx.Close()
 	}()
 
+	var url string
+
 	app := &cli.App{
+		EnableBashCompletion: true,
 		Commands: []*cli.Command{
 			{
 				Name:  "generate",
 				Usage: "Generate a new security token",
 				Flags: []cli.Flag{
 					&cli.StringFlag{
-						Name:  "realm",
-						Usage: "Set the realm id",
+						Name:     "realm",
+						Usage:    "Set the realm id",
+						EnvVars:  []string{"MANETU_REALM"},
+						Required: true,
 					},
 				},
 				Action: func(c *cli.Context) error {
 					realm := c.String("realm")
-					if realm == "" {
-						realm = ctx.Backend.RealmID
-					}
 					cert, err := ctx.Generate(realm)
 					st.Check(err)
 
@@ -80,8 +82,9 @@ func main() {
 				Usage: "Remove a security token",
 				Flags: []cli.Flag{
 					&cli.StringFlag{
-						Name:  "serial",
-						Usage: "Security token serial number",
+						Name:     "serial",
+						Usage:    "Security token serial number",
+						Required: true,
 					},
 				},
 				Action: func(c *cli.Context) error {
@@ -93,6 +96,14 @@ func main() {
 			{
 				Name:  "login",
 				Usage: "Acquires an access token from a security token",
+				Flags: []cli.Flag{
+					&cli.StringFlag{
+						Name:        "url",
+						Usage:       "The URL of the Manetu endpoint",
+						EnvVars:     []string{"MANETU_URL"},
+						Destination: &url,
+					},
+				},
 				Subcommands: []*cli.Command{
 					{
 						Name:  "hsm",
@@ -104,7 +115,7 @@ func main() {
 							},
 						},
 						Action: func(c *cli.Context) error {
-							jwt, err := ctx.LoginPKCS11(c.String("serial"))
+							jwt, err := ctx.LoginPKCS11(url, c.String("serial"))
 							st.Check(err)
 							fmt.Printf("%s\n", jwt)
 
@@ -132,7 +143,7 @@ func main() {
 							},
 						},
 						Action: func(c *cli.Context) error {
-							jwt, err := ctx.LoginX509(c.String("key"), c.String("cert"), c.Bool("path"))
+							jwt, err := ctx.LoginX509(url, c.String("key"), c.String("cert"), c.Bool("path"))
 							st.Check(err)
 							fmt.Printf("%s\n", jwt)
 							return nil

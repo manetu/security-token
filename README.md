@@ -28,10 +28,6 @@ pkcs11:
   path: "/usr/local/Cellar/softhsm/2.6.1/lib/softhsm/libsofthsm2.so"
   tokenlabel: "manetu"
   pin: "1234"
-
-backend:
-  tokenurl: "https://portal.eu.manetu.io/oauth/token"
-  realmId: "piedpiper"
 ```
 
 Please consult the documentation for your selected HSM for the details in the pkcs11 section.
@@ -81,10 +77,10 @@ GLOBAL OPTIONS:
 
 ## generate
 
-The generate command will create a new security token consisting of an ECC P.256 public/private key pair and a self-signed x509.
+The generate command will create a new security token consisting of an ECC P.256 public/private key pair and a self-signed x509.  You must specify the target realm with either --realm or by setting the MANETU_REALM environment variable.
 
 ```shell
-$ ./manetu-security-token generate
+$ ./manetu-security-token generate --realm myrealm
 Serial: EF:6D:9B:CA:93:7E:FA:C5:6C:A8:EC:0A:A0:86:ED:FE:5F:22:7A:41:D8:0D:C0:86:17:B5:DC:DD:D7:4A:8D:AF
 fingerprint: 51:E1:05:87:20:49:DB:57:C3:06:75:0D:84:07:95:CE
 -----BEGIN CERTIFICATE-----
@@ -195,7 +191,7 @@ You may then repeat the --init-token flow to set up a fresh HSM instance.
 
 ## login
 
-A Service Account must be created in the Manetu Realm UI using an x509 certificate prior to login. The certificate is obtained through different means for HSM and ECDSA key based logins.
+A Service Account must be created in the Manetu Realm UI using an x509 certificate prior to login. The certificate is obtained through different means for HSM and PEM key based logins.
 
 ### hsm
 
@@ -225,9 +221,9 @@ Log into the realm in Manetu Realm UI and create the Service Account using `cert
 You may login using the key/cert:
 
 ```shell
-$ ./manetu-security-token login pem --key /path/to/key.pem --cert /path/to/cert.pem --path
+$ ./manetu-security-token login pem --key /path/to/key.pem --cert /path/to/cert.pem --path --url https://manetu.instance
 ```
 
-Raw strings are assumed if `--path` is omitted.
+Raw strings are assumed if `--path` is omitted.  You must specify the URL to your Manetu instance either with --url or MANETU_URL
 
 The output is a `jwt` that can be used in Manetu API invocation.
