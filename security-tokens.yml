@@ -3,6 +3,3 @@ pkcs11:
   tokenlabel: "manetu"
   pin: "1234"
 
-backend:
-  tokenurl: "https://portal.eu.manetu.io/oauth/token"
-  realmId: "piedpiper"

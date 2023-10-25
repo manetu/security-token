@@ -77,8 +77,7 @@ func ExportCert(cert *x509.Certificate) string {
 }
 
 type Core struct {
-	ctx     *crypto11.Context
-	Backend config.BackendConfiguration
+	ctx *crypto11.Context
 }
 
 func New() Core {
@@ -106,7 +105,7 @@ func New() Core {
 
 	fmt.Fprintf(os.Stderr, "Using config file: %s\n", viper.ConfigFileUsed())
 
-	return Core{ctx: ctx, Backend: configuration.Backend}
+	return Core{ctx: ctx}
 }
 
 func (c Core) Close() error {
@@ -267,14 +266,15 @@ func (c Core) Delete(serial string) error {
 	return signer.Delete()
 }
 
-func (c Core) Login(signer crypto.Signer, cert *x509.Certificate) (string, error) {
+func (c Core) Login(url string, signer crypto.Signer, cert *x509.Certificate) (string, error) {
 	mrn := ComputeMRN(cert)
-	cajwt, err := createJWT(signer, mrn, c.Backend.TokenURL)
+	tokenUrl := url + "/oauth/token"
+	cajwt, err := createJWT(signer, mrn, tokenUrl)
 	if err != nil {
 		return "", err
 	}
 
-	jwt, err := login(cajwt, mrn, c.Backend.TokenURL)
+	jwt, err := login(cajwt, mrn, tokenUrl)
 	if err != nil {
 		return "", err
 	}
@@ -282,20 +282,20 @@ func (c Core) Login(signer crypto.Signer, cert *x509.Certificate) (string, error
 	return jwt, err
 }
 
-func (c Core) LoginPKCS11(serial string) (string, error) {
+func (c Core) LoginPKCS11(url string, serial string) (string, error) {
 	token, err := c.getToken(serial)
 	if err != nil {
 		return "", err
 	}
 
-	return c.Login(token.Signer, token.Cert)
+	return c.Login(url, token.Signer, token.Cert)
 }
 
 func (c Core) pathToBytes(path string) ([]byte, error) {
 	return os.ReadFile(filepath.Clean(path))
 }
 
-func (c Core) LoginX509(key string, cert string, path bool) (string, error) {
+func (c Core) LoginX509(url string, key string, cert string, path bool) (string, error) {
 	var (
 		kBytes []byte
 		cBytes []byte
@@ -356,5 +356,5 @@ func (c Core) LoginX509(key string, cert string, path bool) (string, error) {
 		return "", fmt.Errorf("error parsing cert: %s", err)
 	}
 
-	return c.Login(signer, xCert)
+	return c.Login(url, signer, xCert)
 }
