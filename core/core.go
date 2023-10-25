@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"log"
 	"math/big"
+	"net/url"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -266,9 +267,12 @@ func (c Core) Delete(serial string) error {
 	return signer.Delete()
 }
 
-func (c Core) Login(url string, signer crypto.Signer, cert *x509.Certificate) (string, error) {
+func (c Core) Login(tokenUrl string, signer crypto.Signer, cert *x509.Certificate) (string, error) {
 	mrn := ComputeMRN(cert)
-	tokenUrl := url + "/oauth/token"
+	tokenUrl, err := url.JoinPath(tokenUrl, "/oauth/token")
+	if err != nil {
+		return "", err
+	}
 	cajwt, err := createJWT(signer, mrn, tokenUrl)
 	if err != nil {
 		return "", err
