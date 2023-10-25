@@ -12,6 +12,7 @@ import (
 	"github.com/urfave/cli/v2" // imports as package "cli"
 
 	st "github.com/manetu/security-token/core"
+	"github.com/manetu/security-token/version"
 )
 
 func main() {
@@ -32,6 +33,14 @@ func main() {
 	app := &cli.App{
 		EnableBashCompletion: true,
 		Commands: []*cli.Command{
+			{
+				Name:  "version",
+				Usage: "Report version and build information",
+				Action: func(c *cli.Context) error {
+					fmt.Printf("manetu-security-token, git %s, goVersion %s, buildDate %s\n", version.GitCommit, version.GoVersion, version.BuildDate)
+					return nil
+				},
+			},
 			{
 				Name:  "generate",
 				Usage: "Generate a new security token",
