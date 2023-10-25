@@ -197,10 +197,12 @@ A Service Account must be created in the Manetu Realm UI using an x509 certifica
 
 Create the Service Account using the X509 certificate from the [generate](#generate) step.
 
-You may login using a serial number from the [list](#list) command. Note that the `serial` parameter is optional; if you don't specify, it will pick one from the HSM.
+You may login using a serial number from the [list](#list) command. You must specify the --url or set MANETU_URL pointing to your Manetu instance.
+
+N.B. that the `serial` parameter is optional; if you don't specify, it will pick one from the HSM.  This is primarily useful for cases where you only have one token.
 
 ```shell
-$ ./manetu-security-token login hsm --serial 9C:AA:50:2C:B5:1B:01:E2:3D:A6:03:D9:C3:0A:82:6C:F8:8F:6F:D7:B2:E3:CF:05:29:2C:20:F1:AE:C4:7A:72
+$ ./manetu-security-token login --url https://manetu.instance hsm --serial 9C:AA:50:2C:B5:1B:01:E2:3D:A6:03:D9:C3:0A:82:6C:F8:8F:6F:D7:B2:E3:CF:05:29:2C:20:F1:AE:C4:7A:72
 ```
 
 The output is a `jwt` that can be used in Manetu API invocation.
@@ -218,12 +220,12 @@ Replace `the-realm-of-the-service-account` appropriate realm ID.
 
 Log into the realm in Manetu Realm UI and create the Service Account using `cert.pem`.
 
-You may login using the key/cert:
+You may login using the key/cert. You must specify the --url or set MANETU_URL pointing to your Manetu instance.
 
 ```shell
-$ ./manetu-security-token login pem --key /path/to/key.pem --cert /path/to/cert.pem --path --url https://manetu.instance
+$ ./manetu-security-token login --url https://manetu.instance pem --key /path/to/key.pem --cert /path/to/cert.pem --path
 ```
 
-Raw strings are assumed if `--path` is omitted.  You must specify the URL to your Manetu instance either with --url or MANETU_URL
+Raw strings are assumed if `--path` is omitted. 
 
 The output is a `jwt` that can be used in Manetu API invocation.
