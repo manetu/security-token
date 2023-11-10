@@ -21,7 +21,7 @@ If you don't have access to a physical HSM, you may also use the [SoftHSM2](http
 
 ## Setup
 
-You will need to create a security-tokens.yml file with the specifics of your environment.  These details include the HSM configuration, the URL to the Manetu Portal, and the Realm assignment for the Service Account.  Example:
+You may configure the tool for your environment by creating a security-tokens.yml file with your specifics.  These details minimally include the HSM configuration.  Example:
 
 ```yaml
 pkcs11:
@@ -209,7 +209,9 @@ The output is a `jwt` that can be used in Manetu API invocation.
 
 ### pem
 
-A sample script to generate the x509 certificate for development purposes:
+A standard PEM encoded key-pair, such as generated with openssl, may be used for cases where access to a real HSM is limited or overkill.  PEMs trade lower security for increased convenience, and thus you are encouraged to leverage HSMs for production use whenever possible.
+
+If you understand the tradeoffs but still wish to proceed, you may reference the following script to generate the key-pair and x509 certificate:
 
 ```shell
 $ openssl ecparam -genkey -name prime256v1 -noout -out key.pem
