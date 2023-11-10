@@ -10,8 +10,10 @@ import (
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/rand"
+	"crypto/tls"
 	"encoding/asn1"
 	"math/big"
+	"net/http"
 	"net/url"
 	"time"
 
@@ -104,7 +106,7 @@ func createJWT(signer crypto.Signer, subject, audience string) (string, error) {
 	return jws.EncodeWithSigner(hdr, cs, f)
 }
 
-func login(jwt, clientID, tokenURL string) (string, error) {
+func login(jwt, clientID, tokenURL string, insecure bool) (string, error) {
 	v := url.Values{
 		"client_assertion_type": {"urn:ietf:params:oauth:client-assertion-type:jwt-bearer"},
 		"client_assertion":      {jwt},
@@ -117,7 +119,16 @@ func login(jwt, clientID, tokenURL string) (string, error) {
 		AuthStyle:      oauth2.AuthStyleInParams,
 	}
 
-	token, err := config.Token(context.Background())
+	tr := &http.Transport{
+		// #nosec: G402 this is users choice, typically in a dev/test setting
+		TLSClientConfig: &tls.Config{InsecureSkipVerify: insecure},
+	}
+
+	// this is the default client used by the Token api when Transport is nil
+	httpClient := &http.Client{Transport: tr}
+
+	ctx := context.WithValue(context.Background(), oauth2.HTTPClient, httpClient)
+	token, err := config.Token(ctx)
 	if err != nil {
 		return "", err
 	}

@@ -291,7 +291,7 @@ func (c *Core) Delete(serial string) error {
 	return signer.Delete()
 }
 
-func (c *Core) Login(tokenUrl string, signer crypto.Signer, cert *x509.Certificate) (string, error) {
+func (c *Core) Login(tokenUrl string, insecure bool, signer crypto.Signer, cert *x509.Certificate) (string, error) {
 	mrn := ComputeMRN(cert)
 	tokenUrl, err := url.JoinPath(tokenUrl, "/oauth/token")
 	if err != nil {
@@ -302,7 +302,7 @@ func (c *Core) Login(tokenUrl string, signer crypto.Signer, cert *x509.Certifica
 		return "", err
 	}
 
-	jwt, err := login(cajwt, mrn, tokenUrl)
+	jwt, err := login(cajwt, mrn, tokenUrl, insecure)
 	if err != nil {
 		return "", err
 	}
@@ -310,20 +310,20 @@ func (c *Core) Login(tokenUrl string, signer crypto.Signer, cert *x509.Certifica
 	return jwt, err
 }
 
-func (c *Core) LoginPKCS11(url string, serial string) (string, error) {
+func (c *Core) LoginPKCS11(url string, insecure bool, serial string) (string, error) {
 	token, err := c.getToken(serial)
 	if err != nil {
 		return "", err
 	}
 
-	return c.Login(url, token.Signer, token.Cert)
+	return c.Login(url, insecure, token.Signer, token.Cert)
 }
 
 func (c *Core) pathToBytes(path string) ([]byte, error) {
 	return os.ReadFile(filepath.Clean(path))
 }
 
-func (c *Core) LoginX509(url string, key string, cert string, path bool) (string, error) {
+func (c *Core) LoginX509(url string, insecure bool, key string, cert string, path bool) (string, error) {
 	var (
 		kBytes []byte
 		cBytes []byte
@@ -384,5 +384,5 @@ func (c *Core) LoginX509(url string, key string, cert string, path bool) (string
 		return "", fmt.Errorf("error parsing cert: %s", err)
 	}
 
-	return c.Login(url, signer, xCert)
+	return c.Login(url, insecure, signer, xCert)
 }

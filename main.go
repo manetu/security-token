@@ -28,7 +28,10 @@ func main() {
 		_ = ctx.Close()
 	}()
 
-	var url string
+	var (
+		url      string
+		insecure bool
+	)
 
 	app := &cli.App{
 		EnableBashCompletion: true,
@@ -112,6 +115,12 @@ func main() {
 						EnvVars:     []string{"MANETU_URL"},
 						Destination: &url,
 					},
+					&cli.BoolFlag{
+						Name:        "insecure",
+						Usage:       "Allow insecure TLS",
+						EnvVars:     []string{"MANETU_INSECURE"},
+						Destination: &insecure,
+					},
 				},
 				Subcommands: []*cli.Command{
 					{
@@ -124,7 +133,7 @@ func main() {
 							},
 						},
 						Action: func(c *cli.Context) error {
-							jwt, err := ctx.LoginPKCS11(url, c.String("serial"))
+							jwt, err := ctx.LoginPKCS11(url, insecure, c.String("serial"))
 							st.Check(err)
 							fmt.Printf("%s\n", jwt)
 
@@ -152,7 +161,7 @@ func main() {
 							},
 						},
 						Action: func(c *cli.Context) error {
-							jwt, err := ctx.LoginX509(url, c.String("key"), c.String("cert"), c.Bool("path"))
+							jwt, err := ctx.LoginX509(url, insecure, c.String("key"), c.String("cert"), c.Bool("path"))
 							st.Check(err)
 							fmt.Printf("%s\n", jwt)
 							return nil
