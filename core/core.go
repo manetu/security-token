@@ -23,6 +23,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"sync"
 	"time"
 
 	"github.com/ThalesIgnite/crypto11"
@@ -78,39 +79,62 @@ func ExportCert(cert *x509.Certificate) string {
 }
 
 type Core struct {
-	ctx *crypto11.Context
+	sync.Mutex
+	configuration config.Configuration
+	pkcs11Ctx     *crypto11.Context
 }
 
-func New() Core {
+func New() *Core {
+	core := &Core{}
+
+	return core
+}
+
+// get crypto config on need and store it
+func (c *Core) getCryptoCtx() *crypto11.Context {
+	c.Lock()
+	defer c.Unlock()
+
+	if c.pkcs11Ctx != nil {
+		return c.pkcs11Ctx
+	}
+
 	viper.SetConfigName("security-tokens")
 	viper.AddConfigPath(".")
 	viper.AddConfigPath("$HOME/.manetu")
 	viper.AddConfigPath("/etc/manetu/")
-	var configuration config.Configuration
 
-	if err := viper.ReadInConfig(); err != nil {
-		log.Fatalf("error reading config file, %s", err)
-	}
-	err := viper.Unmarshal(&configuration)
+	err := viper.ReadInConfig()
+	Check(err)
+
+	err = viper.Unmarshal(&c.configuration)
 	if err != nil {
 		log.Fatalf("unable to decode into struct, %v", err)
 	}
 
 	// Configure PKCS#11 library via configuration file
-	ctx, err := crypto11.Configure(&crypto11.Config{
-		Path:       configuration.Pkcs11.Path,
-		TokenLabel: configuration.Pkcs11.TokenLabel,
-		Pin:        configuration.Pkcs11.Pin,
+	c.pkcs11Ctx, err = crypto11.Configure(&crypto11.Config{
+		Path:       c.configuration.Pkcs11.Path,
+		TokenLabel: c.configuration.Pkcs11.TokenLabel,
+		Pin:        c.configuration.Pkcs11.Pin,
 	})
+
 	Check(err)
 
 	fmt.Fprintf(os.Stderr, "Using config file: %s\n", viper.ConfigFileUsed())
 
-	return Core{ctx: ctx}
+	return c.pkcs11Ctx
 }
 
-func (c Core) Close() error {
-	return c.ctx.Close()
+func (c *Core) Close() error {
+	c.Lock()
+	defer c.Unlock()
+
+	if c.pkcs11Ctx == nil {
+		return nil
+	}
+
+	return c.pkcs11Ctx.Close()
 }
 
 type Token struct {
@@ -118,12 +142,12 @@ type Token struct {
 	Cert   *x509.Certificate
 }
 
-func (c Core) getToken(serial string) (*Token, error) {
+func (c *Core) getToken(serial string) (*Token, error) {
 
 	var id []byte
 
 	if serial == "" {
-		certs, err := c.ctx.FindAllPairedCertificates()
+		certs, err := c.getCryptoCtx().FindAllPairedCertificates()
 		if err != nil {
 			return nil, err
 		}
@@ -137,7 +161,7 @@ func (c Core) getToken(serial string) (*Token, error) {
 		id = importHexencode(serial)
 	}
 
-	signer, err := c.ctx.FindKeyPair(id, nil)
+	signer, err := c.getCryptoCtx().FindKeyPair(id, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -145,7 +169,7 @@ func (c Core) getToken(serial string) (*Token, error) {
 		return nil, errors.New("invalid serial number")
 	}
 
-	cert, err := c.ctx.FindCertificate(id, nil, nil)
+	cert, err := c.getCryptoCtx().FindCertificate(id, nil, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -159,15 +183,15 @@ func (c Core) getToken(serial string) (*Token, error) {
 	}, nil
 }
 
-func (c Core) Show(serial string) {
+func (c *Core) Show(serial string) {
 	token, err := c.getToken(serial)
 	Check(err)
 
 	fmt.Printf("%s\n", ExportCert(token.Cert))
 }
 
-func (c Core) List() {
-	certs, err := c.ctx.FindAllPairedCertificates()
+func (c *Core) List() {
+	certs, err := c.getCryptoCtx().FindAllPairedCertificates()
 	Check(err)
 
 	table := tablewriter.NewWriter(os.Stdout)
@@ -191,13 +215,13 @@ func ComputeMRN(cert *x509.Certificate) string {
 	return "mrn:iam:" + cert.Subject.Organization[0] + ":identity:" + hex.EncodeToString(hash[:])
 }
 
-func (c Core) Generate(realm string) (*x509.Certificate, error) {
+func (c *Core) Generate(realm string) (*x509.Certificate, error) {
 	id, err := randomID()
 	if err != nil {
 		return nil, err
 	}
 
-	signer, err := c.ctx.GenerateECDSAKeyPair(id, elliptic.P256())
+	signer, err := c.getCryptoCtx().GenerateECDSAKeyPair(id, elliptic.P256())
 	if err != nil {
 		return nil, err
 	}
@@ -238,7 +262,7 @@ func (c Core) Generate(realm string) (*x509.Certificate, error) {
 		return nil, err
 	}
 
-	err = c.ctx.ImportCertificate(id, cert)
+	err = c.getCryptoCtx().ImportCertificate(id, cert)
 	if err != nil {
 		return nil, err
 	}
@@ -246,15 +270,15 @@ func (c Core) Generate(realm string) (*x509.Certificate, error) {
 	return cert, nil
 }
 
-func (c Core) Delete(serial string) error {
+func (c *Core) Delete(serial string) error {
 	id := importHexencode(serial)
 
-	err := c.ctx.DeleteCertificate(id, nil, nil)
+	err := c.getCryptoCtx().DeleteCertificate(id, nil, nil)
 	if err != nil {
 		return err
 	}
 
-	signer, err := c.ctx.FindKeyPair(id, nil)
+	signer, err := c.getCryptoCtx().FindKeyPair(id, nil)
 	if err != nil {
 		return err
 	}
@@ -267,7 +291,7 @@ func (c Core) Delete(serial string) error {
 	return signer.Delete()
 }
 
-func (c Core) Login(tokenUrl string, signer crypto.Signer, cert *x509.Certificate) (string, error) {
+func (c *Core) Login(tokenUrl string, signer crypto.Signer, cert *x509.Certificate) (string, error) {
 	mrn := ComputeMRN(cert)
 	tokenUrl, err := url.JoinPath(tokenUrl, "/oauth/token")
 	if err != nil {
@@ -286,7 +310,7 @@ func (c Core) Login(tokenUrl string, signer crypto.Signer, cert *x509.Certificat
 	return jwt, err
 }
 
-func (c Core) LoginPKCS11(url string, serial string) (string, error) {
+func (c *Core) LoginPKCS11(url string, serial string) (string, error) {
 	token, err := c.getToken(serial)
 	if err != nil {
 		return "", err
@@ -295,11 +319,11 @@ func (c Core) LoginPKCS11(url string, serial string) (string, error) {
 	return c.Login(url, token.Signer, token.Cert)
 }
 
-func (c Core) pathToBytes(path string) ([]byte, error) {
+func (c *Core) pathToBytes(path string) ([]byte, error) {
 	return os.ReadFile(filepath.Clean(path))
 }
 
-func (c Core) LoginX509(url string, key string, cert string, path bool) (string, error) {
+func (c *Core) LoginX509(url string, key string, cert string, path bool) (string, error) {
 	var (
 		kBytes []byte
 		cBytes []byte
