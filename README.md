@@ -205,6 +205,12 @@ N.B. that the `serial` parameter is optional; if you don't specify, it will pick
 $ ./manetu-security-token login --url https://manetu.instance hsm --serial 9C:AA:50:2C:B5:1B:01:E2:3D:A6:03:D9:C3:0A:82:6C:F8:8F:6F:D7:B2:E3:CF:05:29:2C:20:F1:AE:C4:7A:72
 ```
 
+Use the `--insecure` option to skip server certifacte validation when using TLS. This is not recommended and should be used with extreme caution, typically in development and test environments alone.
+
+```shell
+$ ./manetu-security-token login --url https://manetu.instance --insecure hsm --serial 9C:AA:50:2C:B5:1B:01:E2:3D:A6:03:D9:C3:0A:82:6C:F8:8F:6F:D7:B2:E3:CF:05:29:2C:20:F1:AE:C4:7A:72
+```
+
 The output is a `jwt` that can be used in Manetu API invocation.
 
 ### pem
@@ -223,6 +229,12 @@ Replace `the-realm-of-the-service-account` appropriate realm ID.
 Log into the realm in Manetu Realm UI and create the Service Account using `cert.pem`.
 
 You may login using the key/cert. You must specify the --url or set MANETU_URL pointing to your Manetu instance.
+
+```shell
+$ ./manetu-security-token login --url https://manetu.instance pem --key /path/to/key.pem --cert /path/to/cert.pem --path
+```
+
+Use the `--insecure` option to skip server certifacte validation when using TLS. This is not recommended and should be used with extreme caution, typically in development and test environments alone.
 
 ```shell
 $ ./manetu-security-token login --url https://manetu.instance pem --key /path/to/key.pem --cert /path/to/cert.pem --path
