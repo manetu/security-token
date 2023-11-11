@@ -2,7 +2,7 @@
 
 [![CircleCI](https://circleci.com/gh/manetu/security-token/tree/master.svg?style=svg)](https://circleci.com/gh/manetu/security-token/tree/master)
 
-The manetu-security-token CLI is a simple utility to manage Manetu Service Account credentials within a [PKCS11](https://en.wikipedia.org/wiki/PKCS_11) compatible [Hardware Security Module](https://en.wikipedia.org/wiki/Hardware_security_module) (HSM).  It offers support for creating, reading, enumerating, and deleting "security tokens," which are simply a public/private key pair and a self-signed x509.
+The manetu-security-token CLI is a simple utility to manage Manetu Service Account credentials within a [PKCS11](https://en.wikipedia.org/wiki/PKCS_11) compatible [Hardware Security Module](https://en.wikipedia.org/wiki/Hardware_security_module) (HSM).  It supports creating, reading, enumerating, and deleting "security tokens," simply a public/private key pair and a self-signed x509.
 
 Users register these security tokens with the Manetu Realm Portal as a credential for a Service Account within the product's Identity and Access Management (IAM) function.
 
@@ -12,12 +12,12 @@ This utility also offers a 'login' function as a convenience, which will initiat
 
 ## Prerequisites
 
-You will need a PKCS11 compatible HSM and its SDK.  Examples:
+You will need a PKCS11-compatible HSM and its SDK.  Examples:
 
 - [YubiHSM](https://www.yubico.com/products/hardware-security-module/)
 - [CloudHSM](https://aws.amazon.com/cloudhsm/)
 
-If you don't have access to a physical HSM, you may also use the [SoftHSM2](https://github.com/opendnssec/SoftHSMv2) emulator.  SoftHSM2 provides a full PKCS11 compatible interface but stores key material on the host's filesystem, so it is not as secure as an actual tamper-resistant hardware device.  YMMV.
+You may also use the [SoftHSM2](https://github.com/opendnssec/SoftHSMv2) emulator if you don't have access to a physical HSM.  SoftHSM2 provides a PKCS11-compatible interface but stores key material on the host's filesystem, so it is not as secure as an actual tamper-resistant hardware device.  YMMV.
 
 ## Setup
 
@@ -41,15 +41,15 @@ The tool will ask you to select a PIN.  Be sure to update the security-tokens.ym
 
 ## Building
 
-Make sure the following software is installed
- 
+Make sure the following software is installed.
+
 * Golang env version 1.18 or above
 
 ```shell
 make bin
 ```
 
-Executing this command should result in the binary 'manetu-security-token' within your current working directory.
+This command should result in the binary 'manetu-security-token' within your current working directory.
 
 # Usage
 
@@ -187,35 +187,39 @@ The following command will clear out any existing tokens for development with So
 $ softhsm2-util --token manetu --delete-token
 ```
 
-You may then repeat the --init-token flow to set up a fresh HSM instance.
+Repeat the --init-token flow to set up a fresh HSM instance.
 
 ## login
 
-A Service Account must be created in the Manetu Realm UI using an x509 certificate prior to login. The certificate is obtained through different means for HSM and PEM key based logins.
+The login subcommand allows you to create an access token useful for invoking Manetu APIs under the identity of a Service.   Thus, the use of the command has a prerequisite on an existing Service Account registered with the matching public key of the security token you intend to use.
 
-### hsm
+Two types of security tokens are supported: _hsm_ and _pem_.  Each class has options common to both and unique to the chosen type.
 
-Create the Service Account using the X509 certificate from the [generate](#generate) step.
+### Common Features
 
-You may login using a serial number from the [list](#list) command. You must specify the --url or set MANETU_URL pointing to your Manetu instance.
+#### Options
+The login command has options to specify the --url of the Manetu instance and the ability to turn off certificate verification for use with self-signed deployments with TLS by using the --insecure option.  Alternatively, you may use the MANETU_URL and MANETU_INSECURE environment variables.
 
-N.B. that the `serial` parameter is optional; if you don't specify, it will pick one from the HSM.  This is primarily useful for cases where you only have one token.
+N.B. Disabling certificate verification in production scenarios is not recommended and should only be reserved for testing or development.  
+
+#### Return Value
+When successful, the login command returns the access token to stdout, making it suitable for use within scripts or other software that cannot easily perform the correct cryptographic operations.
+
+### Type Specific Options
+
+#### HSM
+
+The HSM subcommand has an optional --serial flag that allows you to specify the desired security token.  If you don't select one explicitly, the tool will pick one from the HSM.  Omitting this parameter is primarily helpful for cases where you only have one token.
+
+Example: 
 
 ```shell
 $ ./manetu-security-token login --url https://manetu.instance hsm --serial 9C:AA:50:2C:B5:1B:01:E2:3D:A6:03:D9:C3:0A:82:6C:F8:8F:6F:D7:B2:E3:CF:05:29:2C:20:F1:AE:C4:7A:72
 ```
 
-Use the `--insecure` option to skip server certifacte validation when using TLS. This is not recommended and should be used with extreme caution, typically in development and test environments alone.
+#### PEM
 
-```shell
-$ ./manetu-security-token login --url https://manetu.instance --insecure hsm --serial 9C:AA:50:2C:B5:1B:01:E2:3D:A6:03:D9:C3:0A:82:6C:F8:8F:6F:D7:B2:E3:CF:05:29:2C:20:F1:AE:C4:7A:72
-```
-
-The output is a `jwt` that can be used in Manetu API invocation.
-
-### pem
-
-A standard PEM encoded key-pair, such as generated with openssl, may be used for cases where access to a real HSM is limited or overkill.  PEMs trade lower security for increased convenience, and thus you are encouraged to leverage HSMs for production use whenever possible.
+A standard PEM-encoded key pair, such as one generated with the openssl tool, may be used for cases where access to a genuine HSM is limited or overkill.  PEMs trade lower security for increased convenience, and thus, you are encouraged to leverage HSMs for production use whenever possible.
 
 If you understand the tradeoffs but still wish to proceed, you may reference the following script to generate the key-pair and x509 certificate:
 
@@ -224,22 +228,19 @@ $ openssl ecparam -genkey -name prime256v1 -noout -out key.pem
 $ openssl req -new -x509 -key key.pem -out cert.pem -days 365 -subj "/O=the-realm-of-the-service-account"
 ```
 
-Replace `the-realm-of-the-service-account` appropriate realm ID.
+N.B. Replace `the-realm-of-the-service-account` appropriate realm I.D.
 
-Log into the realm in Manetu Realm UI and create the Service Account using `cert.pem`.
+##### Setting Up
 
-You may login using the key/cert. You must specify the --url or set MANETU_URL pointing to your Manetu instance.
+Log into the realm in Manetu Realm U.I. and create the Service Account using the `cert.pem` generated in the previous step.
+
+##### Usage
+
+The PEM subcommand has options to specify the --cert and --key data.  By default, the parameters are expected to be PEM-encoded strings.  You may optionally specify the parameters as paths to files using the --path option.
+
+Example:
 
 ```shell
 $ ./manetu-security-token login --url https://manetu.instance pem --key /path/to/key.pem --cert /path/to/cert.pem --path
 ```
 
-Use the `--insecure` option to skip server certifacte validation when using TLS. This is not recommended and should be used with extreme caution, typically in development and test environments alone.
-
-```shell
-$ ./manetu-security-token login --url https://manetu.instance pem --key /path/to/key.pem --cert /path/to/cert.pem --path
-```
-
-Raw strings are assumed if `--path` is omitted. 
-
-The output is a `jwt` that can be used in Manetu API invocation.
