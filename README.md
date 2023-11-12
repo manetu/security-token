@@ -6,7 +6,7 @@ The manetu-security-token CLI is a simple utility to manage Manetu Service Accou
 
 Users register these security tokens with the Manetu Realm Portal as a credential for a Service Account within the product's Identity and Access Management (IAM) function.
 
-This utility also offers a 'login' function as a convenience, which will initiate a Service Account login via the OAUTH [private_key_jwt](https://openid.net/specs/openid-connect-core-1_0-15.html#ClientAuthentication) authentication flow.  If successful, the resulting [JWT](https://en.wikipedia.org/wiki/JSON_Web_Token) based Access Token will be sent to stdout, making this function suitable as both an example as well as an integration for other applications that cannot perform the HSM and JWT operations natively.
+This utility also offers a [login](#login) function as a convenience, initiating a Service Account authorization flow to the Manetu Platform to obtain an access token for API use.  
 
 # Getting Started
 
@@ -39,11 +39,11 @@ softhsm2-util --init-token --slot 0 --label "manetu"
 ```
 The tool will ask you to select a PIN.  Be sure to update the security-tokens.yml with your selection.
 
-## Building
-
-Make sure the following software is installed.
+## Prerequisites
 
 * Golang env version 1.18 or above
+
+## Building
 
 ```shell
 make bin
@@ -191,27 +191,61 @@ Repeat the --init-token flow to set up a fresh HSM instance.
 
 ## login
 
-The login subcommand allows you to create an access token useful for invoking Manetu APIs under the identity of a Service.   Thus, the use of the command has a prerequisite on an existing Service Account registered with the matching public key of the security token you intend to use.
+The login subcommand allows you to create an access token for invoking Manetu APIs under the identity of a Service via the OAUTH [private_key_jwt](https://openid.net/specs/openid-connect-core-1_0-15.html#ClientAuthentication) authentication flow.   Thus, the use of the command has a prerequisite on an existing Service Account registered with the matching public key of the security token you intend to use.
 
 Two types of security tokens are supported: _hsm_ and _pem_.  Each class has options common to both and unique to the chosen type.
+
+### Usage
+
+```shell
+$ ./manetu-security-token login -h
+NAME:
+   manetu-security-token login - Acquires an access token from a security token
+
+USAGE:
+   manetu-security-token login command [command options] [arguments...]
+
+COMMANDS:
+   hsm      HSM based login
+   pem      non-HSM protected PEM encoded certificate and key-pair
+   help, h  Shows a list of commands or help for one command
+
+OPTIONS:
+   --url value  The URL of the Manetu endpoint [$MANETU_URL]
+   --insecure   Allow insecure TLS (default: false) [$MANETU_INSECURE]
+   --help, -h   show help
+```
 
 ### Common Features
 
 #### Options
-The login command has options to specify the --url of the Manetu instance and the ability to turn off certificate verification for use with self-signed deployments with TLS by using the --insecure option.  Alternatively, you may use the MANETU_URL and MANETU_INSECURE environment variables.
+The login command provides options to specify the --url of the Manetu instance and --insecure to turn off certificate verification.  The latter is helpful for deployments leveraging self-signed TLS certificates.  
 
-N.B. Disabling certificate verification in production scenarios is not recommended and should only be reserved for testing or development.  
+N.B. Disabling certificate verification in production scenarios is not recommended and should be reserved only for testing or development.
 
 #### Return Value
-When successful, the login command returns the access token to stdout, making it suitable for use within scripts or other software that cannot easily perform the correct cryptographic operations.
+When successful, the login command returns the resulting [JWT](https://en.wikipedia.org/wiki/JSON_Web_Token) based Access Token on stdout, making this function suitable as both an example as well as an integration for other applications that cannot perform the HSM and JWT operations natively.
 
 ### Type Specific Options
 
 #### HSM
 
+```shell
+$ ./manetu-security-token login hsm -h
+NAME:
+   manetu-security-token login hsm - HSM based login
+
+USAGE:
+   manetu-security-token login hsm [command options] [arguments...]
+
+OPTIONS:
+   --serial value  HSM serial number
+   --help, -h      show help
+```
+
 The HSM subcommand has an optional --serial flag that allows you to specify the desired security token.  If you don't select one explicitly, the tool will pick one from the HSM.  Omitting this parameter is primarily helpful for cases where you only have one token.
 
-Example: 
+Example:
 
 ```shell
 $ ./manetu-security-token login --url https://manetu.instance hsm --serial 9C:AA:50:2C:B5:1B:01:E2:3D:A6:03:D9:C3:0A:82:6C:F8:8F:6F:D7:B2:E3:CF:05:29:2C:20:F1:AE:C4:7A:72
@@ -219,7 +253,7 @@ $ ./manetu-security-token login --url https://manetu.instance hsm --serial 9C:AA
 
 #### PEM
 
-A standard PEM-encoded key pair, such as one generated with the openssl tool, may be used for cases where access to a genuine HSM is limited or overkill.  PEMs trade lower security for increased convenience, and thus, you are encouraged to leverage HSMs for production use whenever possible.
+A standard PEM-encoded key pair, such as one generated with the openssl tool, may be used for cases where access to a genuine HSM is limited or overkill.  PEMs trade increased convenience for lower security, and thus, you are encouraged to leverage HSMs for production use whenever possible.
 
 If you understand the tradeoffs but still wish to proceed, you may reference the following script to generate the key-pair and x509 certificate:
 
@@ -236,11 +270,25 @@ Log into the realm in Manetu Realm U.I. and create the Service Account using the
 
 ##### Usage
 
-The PEM subcommand has options to specify the --cert and --key data.  By default, the parameters are expected to be PEM-encoded strings.  You may optionally specify the parameters as paths to files using the --path option.
+```shell
+$ ./manetu-security-token login pem -h
+NAME:
+   manetu-security-token login pem - non-HSM protected PEM encoded certificate and key-pair
+
+USAGE:
+   manetu-security-token login pem [command options] [arguments...]
+
+OPTIONS:
+   --key value   X509 Key (or path)
+   --cert value  X509 cert (or path)
+   --path        treat key/cert parameters as paths (default: false)
+   --help, -h    show help
+```
+
+The PEM subcommand provides options to specify the --cert and --key data.  By default, the tool expects parameters to be PEM-encoded strings.  You may optionally specify the parameters as paths to files using the --path option.
 
 Example:
 
 ```shell
 $ ./manetu-security-token login --url https://manetu.instance pem --key /path/to/key.pem --cert /path/to/cert.pem --path
 ```
-
