@@ -12,6 +12,7 @@ import (
 	"crypto/rand"
 	"crypto/tls"
 	"encoding/asn1"
+	"fmt"
 	"math/big"
 	"net/http"
 	"net/url"
@@ -106,12 +107,7 @@ func createJWT(signer crypto.Signer, subject, audience string) (string, error) {
 	return jws.EncodeWithSigner(hdr, cs, f)
 }
 
-func login(jwt, clientID, tokenURL string, insecure bool) (string, error) {
-	v := url.Values{
-		"client_assertion_type": {"urn:ietf:params:oauth:client-assertion-type:jwt-bearer"},
-		"client_assertion":      {jwt},
-	}
-
+func getToken(v url.Values, jwt, clientID, tokenURL string, insecure bool) (*oauth2.Token, error) {
 	config := clientcredentials.Config{
 		ClientID:       clientID,
 		TokenURL:       tokenURL,
@@ -129,6 +125,37 @@ func login(jwt, clientID, tokenURL string, insecure bool) (string, error) {
 
 	ctx := context.WithValue(context.Background(), oauth2.HTTPClient, httpClient)
 	token, err := config.Token(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	return token, nil
+}
+
+//lint:ignore U1000 currently unused... but useful for testing etc. Can be exposed when required
+func refresh(refToken, jwt, clientID, tokenURL string, insecure bool) (string, error) {
+	v := url.Values{
+		"grant_type":            {"refresh_token"},
+		"client_assertion_type": {"urn:ietf:params:oauth:client-assertion-type:jwt-bearer"},
+		"client_assertion":      {jwt},
+		"refresh_token":         {refToken},
+	}
+	tok, err := getToken(v, jwt, clientID, tokenURL, insecure)
+	if err != nil {
+		return "", err
+	}
+
+	fmt.Printf("REFRESHED %+v\n", tok.RefreshToken)
+
+	return tok.AccessToken, nil
+}
+
+func login(jwt, clientID, tokenURL string, insecure bool) (string, error) {
+	v := url.Values{
+		"client_assertion_type": {"urn:ietf:params:oauth:client-assertion-type:jwt-bearer"},
+		"client_assertion":      {jwt},
+	}
+	token, err := getToken(v, jwt, clientID, tokenURL, insecure)
 	if err != nil {
 		return "", err
 	}
