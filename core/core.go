@@ -183,16 +183,21 @@ func (c *Core) getToken(serial string) (*Token, error) {
 	}, nil
 }
 
-func (c *Core) Show(serial string) {
+func (c *Core) Show(serial string) error {
 	token, err := c.getToken(serial)
-	Check(err)
+	if err != nil {
+		return err
+	}
 
 	fmt.Printf("%s\n", ExportCert(token.Cert))
+	return nil
 }
 
-func (c *Core) List() {
+func (c *Core) List() error {
 	certs, err := c.getCryptoCtx().FindAllPairedCertificates()
-	Check(err)
+	if err != nil {
+		return err
+	}
 
 	table := tablewriter.NewWriter(os.Stdout)
 	table.SetHeader([]string{"Serial", "Realm", "Created"})
@@ -202,11 +207,12 @@ func (c *Core) List() {
 		// there may multiple realms in future ?
 		realms := cert.Subject.Organization[0]
 		for i := 1; i < len(cert.Subject.Organization); i++ {
-			realms = "," + cert.Subject.Organization[i]
+			realms += "," + cert.Subject.Organization[i]
 		}
 		table.Append([]string{HexEncode(cert.SerialNumber.Bytes()), realms, cert.NotBefore.String()})
 	}
 	table.Render() // Send output
+	return nil
 }
 
 // ComputeMRN computes MRN given certificate
