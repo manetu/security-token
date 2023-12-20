@@ -58,8 +58,9 @@ func main() {
 				Action: func(c *cli.Context) error {
 					realm := c.String("realm")
 					cert, err := ctx.Generate(realm)
-					st.Check(err)
-
+					if err != nil {
+						return fmt.Errorf("error during generate: %v", err)
+					}
 					fmt.Printf("Serial: %s\n", st.HexEncode(cert.SerialNumber.Bytes()))
 					fmt.Printf("MRN: %s\n", st.ComputeMRN(cert))
 					fmt.Printf("%s\n", st.ExportCert(cert))
@@ -77,7 +78,10 @@ func main() {
 					},
 				},
 				Action: func(c *cli.Context) error {
-					ctx.Show(c.String("serial"))
+					err := ctx.Show(c.String("serial"))
+					if err != nil {
+						return fmt.Errorf("error during show: %v", err)
+					}
 					return nil
 				},
 			},
@@ -85,7 +89,10 @@ func main() {
 				Name:  "list",
 				Usage: "Enumerate available security tokens",
 				Action: func(c *cli.Context) error {
-					ctx.List()
+					err := ctx.List()
+					if err != nil {
+						return fmt.Errorf("error during list: %v", err)
+					}
 					return nil
 				},
 			},
@@ -101,7 +108,9 @@ func main() {
 				},
 				Action: func(c *cli.Context) error {
 					err := ctx.Delete(c.String("serial"))
-					st.Check(err)
+					if err != nil {
+						return fmt.Errorf("error during delete: %v", err)
+					}
 					return nil
 				},
 			},
@@ -135,8 +144,7 @@ func main() {
 						Action: func(c *cli.Context) error {
 							jwt, err := ctx.LoginPKCS11(url, insecure, c.String("serial"))
 							if err != nil {
-								log.Printf("Error during HSM login: %v\n", err)
-								os.Exit(1) // Exit with non-zero code on error
+								return fmt.Errorf("error during HSM login: %v", err)
 							}
 							fmt.Printf("%s\n", jwt)
 							return nil
@@ -165,8 +173,7 @@ func main() {
 						Action: func(c *cli.Context) error {
 							jwt, err := ctx.LoginX509(url, insecure, c.String("key"), c.String("cert"), c.Bool("path"))
 							if err != nil {
-								log.Printf("Error during PEM login: %v\n", err)
-								os.Exit(1) // Exit with non-zero code on error
+								return fmt.Errorf("error during PEM login: %v", err)
 							}
 							fmt.Printf("%s\n", jwt)
 							return nil
