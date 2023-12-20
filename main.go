@@ -134,9 +134,11 @@ func main() {
 						},
 						Action: func(c *cli.Context) error {
 							jwt, err := ctx.LoginPKCS11(url, insecure, c.String("serial"))
-							st.Check(err)
+							if err != nil {
+								log.Printf("Error during HSM login: %v\n", err)
+								os.Exit(1) // Exit with non-zero code on error
+							}
 							fmt.Printf("%s\n", jwt)
-
 							return nil
 						},
 					},
@@ -162,7 +164,10 @@ func main() {
 						},
 						Action: func(c *cli.Context) error {
 							jwt, err := ctx.LoginX509(url, insecure, c.String("key"), c.String("cert"), c.Bool("path"))
-							st.Check(err)
+							if err != nil {
+								log.Printf("Error during PEM login: %v\n", err)
+								os.Exit(1) // Exit with non-zero code on error
+							}
 							fmt.Printf("%s\n", jwt)
 							return nil
 						},
