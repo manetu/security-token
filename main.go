@@ -8,8 +8,10 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"syscall"
 
 	"github.com/urfave/cli/v2" // imports as package "cli"
+	"golang.org/x/crypto/ssh/terminal"
 
 	st "github.com/manetu/security-token/core"
 	"github.com/manetu/security-token/version"
@@ -155,23 +157,55 @@ func main() {
 						Usage: "non-HSM protected PEM encoded certificate and key-pair",
 						Flags: []cli.Flag{
 							&cli.StringFlag{
-								Name:     "key",
-								Usage:    "X509 Key (or path)",
-								Required: true,
+								Name:  "key",
+								Usage: "X509 Key (or path)",
 							},
 							&cli.StringFlag{
-								Name:     "cert",
-								Usage:    "X509 cert (or path)",
-								Required: true,
+								Name:  "cert",
+								Usage: "X509 cert (or path)",
 							},
 							&cli.BoolFlag{
-								Name:     "path",
-								Usage:    "treat key/cert parameters as paths",
-								Required: false,
+								Name:  "path",
+								Usage: "Treat key/cert parameters as paths",
+							},
+							&cli.StringFlag{
+								Name:  "p12",
+								Usage: "Path to the .p12 file or its content",
+							},
+							&cli.StringFlag{
+								Name:  "password",
+								Usage: "Password for the .p12 file",
 							},
 						},
 						Action: func(c *cli.Context) error {
-							jwt, err := ctx.LoginX509(url, insecure, c.String("key"), c.String("cert"), c.Bool("path"))
+							if c.String("p12") != "" {
+								password := c.String("password")
+								if password == "" {
+									fmt.Print("Enter password for PKCS#12 file: ")
+									bytePassword, err := terminal.ReadPassword(int(syscall.Stdin))
+									if err != nil {
+										return fmt.Errorf("error reading password: %v", err)
+									}
+									password = string(bytePassword)
+									fmt.Println()
+								}
+
+								jwt, err := ctx.LoginPKCS12(url, insecure, c.String("p12"), password, c.Bool("path"))
+								if err != nil {
+									return fmt.Errorf("error during PKCS#12 login: %v", err)
+								}
+								fmt.Printf("%s\n", jwt)
+								return nil
+							}
+
+							key := c.String("key")
+							cert := c.String("cert")
+
+							if key == "" || cert == "" {
+								return fmt.Errorf("both key and cert must be provided for PEM login")
+							}
+
+							jwt, err := ctx.LoginX509(url, insecure, key, cert, c.Bool("path"))
 							if err != nil {
 								return fmt.Errorf("error during PEM login: %v", err)
 							}

@@ -29,6 +29,7 @@ import (
 	"github.com/ThalesIgnite/crypto11"
 	"github.com/olekukonko/tablewriter"
 	"github.com/spf13/viper"
+	"software.sslmate.com/src/go-pkcs12"
 
 	"github.com/manetu/security-token/config"
 )
@@ -391,4 +392,43 @@ func (c *Core) LoginX509(url string, insecure bool, key string, cert string, pat
 	}
 
 	return c.Login(url, insecure, signer, xCert)
+}
+
+func decodeP12(p12Data []byte, password string) (*x509.Certificate, crypto.Signer, error) {
+	privateKey, cert, err := pkcs12.Decode(p12Data, password)
+	if err != nil {
+		return nil, nil, fmt.Errorf("error decoding PKCS#12 file: %v", err)
+	}
+
+	signer, ok := privateKey.(crypto.Signer)
+	if !ok {
+		return nil, nil, errors.New("private key is not a crypto.Signer")
+	}
+
+	if cert == nil {
+		return nil, nil, errors.New("certificate not found in PKCS#12 file")
+	}
+
+	return cert, signer, nil
+}
+
+func (c *Core) LoginPKCS12(url string, insecure bool, p12 string, password string, path bool) (string, error) {
+	var p12Bytes []byte
+	var err error
+
+	if path {
+		p12Bytes, err = c.pathToBytes(p12)
+		if err != nil {
+			return "", fmt.Errorf("failed to read .p12 file: %v", err)
+		}
+	} else {
+		p12Bytes = []byte(p12)
+	}
+
+	cert, signer, err := decodeP12(p12Bytes, password)
+	if err != nil {
+		return "", err
+	}
+
+	return c.Login(url, insecure, signer, cert)
 }
