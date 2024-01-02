@@ -253,20 +253,22 @@ $ ./manetu-security-token login --url https://manetu.instance hsm --serial 9C:AA
 
 #### PEM
 
-A standard PEM-encoded key pair, such as one generated with the openssl tool, may be used for cases where access to a genuine HSM is limited or overkill.  PEMs trade increased convenience for lower security, and thus, you are encouraged to leverage HSMs for production use whenever possible.
+A standard PEM-encoded key pair, such as one generated with the openssl tool, may be used for cases where access to a genuine HSM is limited or overkill. Bundling the PEM-enconded key pair to PKCS12 password protected file is also supported. PEMs trade increased convenience for lower security, and thus, you are encouraged to leverage HSMs for production use whenever possible.
 
-If you understand the tradeoffs but still wish to proceed, you may reference the following script to generate the key-pair and x509 certificate:
+If you understand the tradeoffs but still wish to proceed, you may reference the following script to generate the key-pair, x509 certificate and (optionally) PKCS12:
 
 ```shell
 $ openssl ecparam -genkey -name prime256v1 -noout -out key.pem
 $ openssl req -new -x509 -key key.pem -out cert.pem -days 365 -subj "/O=the-realm-of-the-service-account"
+# Optional PKCS12, you will be prompted for an optional password for the file
+$ openssl pkcs12 -export -inkey /path/to/key.pem -in /path/to/cert.pem -out keycert.p12 
 ```
 
 N.B. Replace `the-realm-of-the-service-account` appropriate realm I.D.
 
 ##### Setting Up
 
-Log into the realm in Manetu Realm U.I. and create the Service Account using the `cert.pem` generated in the previous step.
+Log into the realm in Manetu Realm U.I. and create the Service Account using the `cert.pem` and `key.pem` or just `keycert.p12` generated in the previous step.
 
 ##### Usage
 
@@ -279,16 +281,19 @@ USAGE:
    manetu-security-token login pem [command options] [arguments...]
 
 OPTIONS:
-   --key value   X509 Key (or path)
-   --cert value  X509 cert (or path)
-   --path        treat key/cert parameters as paths (default: false)
-   --help, -h    show help
+   --key value      X509 Key (or path)
+   --cert value     X509 cert (or path)
+   --p12 value      PKCS12 Bundled Key/Cert (or path)
+   --password value Password for .p12 file (if not passed in, user will be prompted)
+   --path           treat key/cert parameters as paths (default: false)
+   --help, -h       show help
 ```
 
-The PEM subcommand provides options to specify the --cert and --key data.  By default, the tool expects parameters to be PEM-encoded strings.  You may optionally specify the parameters as paths to files using the --path option.
+The PEM subcommand provides options to specify the --cert and --key data. It also provides the option to specifiy --p12 PKCS12 file, and --password password for .p12 file. If using --cert and --key, then do not use --p12 or --password and vice-versa. By default, the tool expects parameters to be PEM-encoded strings.  You may optionally specify the parameters as paths to files using the --path option. --password is also optional, and user will be prompted if not passed in.
 
 Example:
 
 ```shell
 $ ./manetu-security-token login --url https://manetu.instance pem --key /path/to/key.pem --cert /path/to/cert.pem --path
+$ ./manetu-security-token login --url http://manetu.instance pem --p12 ./path/to/keycert.p12 --password password --path
 ```

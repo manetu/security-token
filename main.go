@@ -170,11 +170,11 @@ func main() {
 							},
 							&cli.StringFlag{
 								Name:  "p12",
-								Usage: "Path to the .p12 file or its content",
+								Usage: "PKCS12 Bundled Key/Cert (or path)",
 							},
 							&cli.StringFlag{
 								Name:  "password",
-								Usage: "Password for the .p12 file",
+								Usage: "Password for .p12 file (if not passed in, user will be prompted)",
 							},
 						},
 						Action: func(c *cli.Context) error {
