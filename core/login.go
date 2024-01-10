@@ -55,11 +55,12 @@ func createJWT(signer crypto.Signer, subject, audience string) (string, error) {
 
 	now := time.Now()
 	duration, _ := time.ParseDuration("30s")
+	grace := time.Duration(-5) * time.Second
 	cs := &jws.ClaimSet{
 		Iss: subject,
 		Sub: subject,
 		Aud: audience,
-		Iat: now.Unix(),
+		Iat: now.Add(grace).Unix(), // Workaround - Allow for client/server time skew
 		Exp: now.Add(duration).Unix(),
 		PrivateClaims: map[string]interface{}{
 			"jti": uuid.String(),
