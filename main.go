@@ -63,8 +63,8 @@ func main() {
 					if err != nil {
 						return fmt.Errorf("error during generate: %v", err)
 					}
-					fmt.Printf("Serial: %s\n", st.HexEncode(cert.SerialNumber.Bytes()))
-					fmt.Printf("MRN: %s\n", st.ComputeMRN(cert))
+					fmt.Fprintf(os.Stderr, "Serial: %s\n", st.HexEncode(cert.SerialNumber.Bytes()))
+					fmt.Fprintf(os.Stderr, "MRN: %s\n", st.ComputeMRN(cert))
 					fmt.Printf("%s\n", st.ExportCert(cert))
 
 					return nil
