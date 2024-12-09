@@ -6,7 +6,6 @@ package main
 
 import (
 	"fmt"
-	"log"
 	"os"
 	"syscall"
 
@@ -227,6 +226,8 @@ func main() {
 
 	err := app.Run(os.Args)
 	if err != nil {
-		log.Fatal(err)
+		fmt.Printf("Error: %s\n", err)
+		os.Exit(-1)
 	}
+	os.Exit(0)
 }
