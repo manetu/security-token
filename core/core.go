@@ -298,13 +298,16 @@ func (c *Core) Delete(serial string) error {
 	return signer.Delete()
 }
 
-func (c *Core) Login(tokenUrl string, insecure bool, signer crypto.Signer, cert *x509.Certificate) (string, error) {
+func (c *Core) Login(tokenUrl string, insecure bool, audience string, signer crypto.Signer, cert *x509.Certificate) (string, error) {
 	mrn := ComputeMRN(cert)
 	tokenUrl, err := url.JoinPath(tokenUrl, "/oauth/token")
 	if err != nil {
 		return "", err
 	}
-	cajwt, err := createJWT(signer, mrn, tokenUrl)
+	if len(audience) == 0 {
+		audience = tokenUrl
+	}
+	cajwt, err := createJWT(signer, mrn, audience)
 	if err != nil {
 		return "", err
 	}
@@ -317,20 +320,20 @@ func (c *Core) Login(tokenUrl string, insecure bool, signer crypto.Signer, cert 
 	return jwt, err
 }
 
-func (c *Core) LoginPKCS11(url string, insecure bool, serial string) (string, error) {
+func (c *Core) LoginPKCS11(url string, insecure bool, audience string, serial string) (string, error) {
 	token, err := c.getToken(serial)
 	if err != nil {
 		return "", err
 	}
 
-	return c.Login(url, insecure, token.Signer, token.Cert)
+	return c.Login(url, insecure, audience, token.Signer, token.Cert)
 }
 
 func (c *Core) pathToBytes(path string) ([]byte, error) {
 	return os.ReadFile(filepath.Clean(path))
 }
 
-func (c *Core) LoginX509(url string, insecure bool, key string, cert string, path bool) (string, error) {
+func (c *Core) LoginX509(url string, insecure bool, audience string, key string, cert string, path bool) (string, error) {
 	var (
 		kBytes []byte
 		cBytes []byte
@@ -391,7 +394,7 @@ func (c *Core) LoginX509(url string, insecure bool, key string, cert string, pat
 		return "", fmt.Errorf("error parsing cert: %s", err)
 	}
 
-	return c.Login(url, insecure, signer, xCert)
+	return c.Login(url, insecure, audience, signer, xCert)
 }
 
 func decodeP12(p12Data []byte, password string) (*x509.Certificate, crypto.Signer, error) {
@@ -412,7 +415,7 @@ func decodeP12(p12Data []byte, password string) (*x509.Certificate, crypto.Signe
 	return cert, signer, nil
 }
 
-func (c *Core) LoginPKCS12(url string, insecure bool, p12 string, password string, path bool) (string, error) {
+func (c *Core) LoginPKCS12(url string, insecure bool, audience string, p12 string, password string, path bool) (string, error) {
 	var p12Bytes []byte
 	var err error
 
@@ -430,5 +433,5 @@ func (c *Core) LoginPKCS12(url string, insecure bool, p12 string, password strin
 		return "", err
 	}
 
-	return c.Login(url, insecure, signer, cert)
+	return c.Login(url, insecure, audience, signer, cert)
 }
