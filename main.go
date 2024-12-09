@@ -33,6 +33,7 @@ func main() {
 	var (
 		url      string
 		insecure bool
+		audience string
 	)
 
 	app := &cli.App{
@@ -132,6 +133,12 @@ func main() {
 						EnvVars:     []string{"MANETU_INSECURE"},
 						Destination: &insecure,
 					},
+					&cli.StringFlag{
+						Name:        "audience",
+						Usage:       "Override the audience claim",
+						EnvVars:     []string{"MANETU_AUDIENCE"},
+						Destination: &audience,
+					},
 				},
 				Subcommands: []*cli.Command{
 					{
@@ -144,7 +151,7 @@ func main() {
 							},
 						},
 						Action: func(c *cli.Context) error {
-							jwt, err := ctx.LoginPKCS11(url, insecure, c.String("serial"))
+							jwt, err := ctx.LoginPKCS11(url, insecure, audience, c.String("serial"))
 							if err != nil {
 								return fmt.Errorf("error during HSM login: %v", err)
 							}
@@ -190,7 +197,7 @@ func main() {
 									fmt.Println()
 								}
 
-								jwt, err := ctx.LoginPKCS12(url, insecure, c.String("p12"), password, c.Bool("path"))
+								jwt, err := ctx.LoginPKCS12(url, insecure, audience, c.String("p12"), password, c.Bool("path"))
 								if err != nil {
 									return fmt.Errorf("error during PKCS#12 login: %v", err)
 								}
@@ -205,7 +212,7 @@ func main() {
 								return fmt.Errorf("both key and cert must be provided for PEM login")
 							}
 
-							jwt, err := ctx.LoginX509(url, insecure, key, cert, c.Bool("path"))
+							jwt, err := ctx.LoginX509(url, insecure, audience, key, cert, c.Bool("path"))
 							if err != nil {
 								return fmt.Errorf("error during PEM login: %v", err)
 							}
